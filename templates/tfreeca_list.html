@@ -1,0 +1,342 @@
+{% extends "base.html" %} {% block content %}
+
+<form class="mt-2" id="search_form">
+    <div class="input-group" style="display:flex; flex-grow:1;">
+        <input name="search" type="text" class="form-control border-right-0 border" value="" id="search" aria-describedby="basic-addon3">
+        <div class="input-group-append">
+            <button class="btn btn-outline-secondary border-left-0 border" type="submit" id="search_btn">
+            <i class="fa fa-search"></i>
+            </button>
+        </div>
+    </div>
+</form>
+
+
+<small class="text-muted mt-0 ml-2" id="item-loaded"></small>
+
+<ul class="list-group mt-3 mb-3" id="article-list">
+    <template id="item-template">
+        <li class="list-group-item">
+            <div class="d-flex w-100 justify-content-between">
+                <h6 class="mb-1 text-truncate" style="flex: 1;">
+                    <a href="" target="_blank" rel="noopener noreferrer" id="item-name"></a>
+                    <a href="#" class="ml-1 badge badge-secondary" id="subtitle"></a>
+                </h6>
+                <span class="text-nowrap" id="datetime"></span>
+            </div>
+            <div class="collapse" id="more-items"></div>
+        </li>
+    </template>
+</ul>
+
+<!-- element to trigger the IntersectionObserver -->
+<div class="d-flex justify-content-center mb-3" id="sentinel">
+    <div class="spinner-border" role="status"></div>
+</div>
+<!--전체-->
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" integrity="sha512-SfTiTlX6kk+qitfevl/7LibUOeJWlt9rbyDn92a1DqWOw9vWG2MFoays0sgObmWazO5BQPiFucnnEAjpAB+/Sw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+<!--context menu-->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.9.2/jquery.contextMenu.min.css" integrity="sha512-SWjZLElR5l3FxoO9Bt9Dy3plCWlBi1Mc9/OlojDPwryZxO0ydpZgvXMLhV6jdEyULGNWjKgZWiX/AMzIvZ4JuA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.9.2/jquery.contextMenu.min.js" integrity="sha512-kvg/Lknti7OoAw0GqMBP8B+7cGHvp4M9O9V6nAYG91FZVDMW3Xkkq5qrdMhrXiawahqU7IZ5CNsY/wWy1PpGTQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.9.2/jquery.ui.position.js" integrity="sha512-vBR2rismjmjzdH54bB2Gx+xSe/17U0iHpJ1gkyucuqlTeq+Q8zwL8aJDIfhQtnWMVbEKMzF00pmFjc9IPjzR7w==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<style type="text/css">
+.small, small { font-size: 95%; }
+.badge-notify { font-size: 25%; position: absolute; left: 0.9rem; background-color: rgba(255, 0, 0, 0.7); }
+</style>
+
+<script type="text/javascript">
+    var package_name = "{{arg['package_name']}}";
+    var b_id = "{{sub}}";
+    var list_url_base = `/${package_name}/ajax/list?b_id=${b_id}`;
+    var offcloud_disabled = "{{arg['offcloud_installed']}}" === "False";
+    var downloader_disabled = "{{arg['downloader_installed']}}" === "False";
+    var torrent_info_disabled = "{{arg['torrent_info_installed']}}" === "False";
+
+    // Get references to the dom elements
+    var scroller = document.querySelector("#article-list");
+    var template = document.querySelector('#item-template');
+    var loaded = document.querySelector("#item-loaded");
+    var sentinel = document.querySelector('#sentinel');
+
+    var counter = 0;
+    var page = 1;
+    var list_url = list_url_base;
+
+    // Function to request new items and render to the dom
+    // https://pythonise.com/categories/javascript/infinite-lazy-loading
+    function loadItems() {
+        // Use fetch to request data and pass the page value in the QS
+        fetch(`${list_url}&page=${page}`).then((response) => {
+            response.json().then((res) => {
+                if (!res.success) {
+                    sentinel.innerHTML = `ERROR: ${res.log}`;
+                    return;
+                }
+                // Iterate over the items in the response
+                for (var i = 0; i < res.list.length; i++) {
+                    render_single_item(res.list[i], false);
+                    // Increment the page
+                    counter += 1;
+                    // Update the counter
+                    loaded.innerText = `${counter}개의 결과`;
+                }
+                page += 1;
+                if (res.nomore) {
+                    sentinel.innerHTML = "No more items";
+                    intersectionObserver.unobserve(sentinel);
+                } else if (counter < 15) {
+                    // Temporary fix
+                    intersectionObserver.unobserve(sentinel);
+                    intersectionObserver.observe(sentinel);
+                }
+            })
+        })
+    }
+
+    // Create a new IntersectionObserver instance
+    var intersectionObserver = new IntersectionObserver(entries => {
+        // Uncomment below to see the entry.intersectionRatio when
+        // the sentinel comes into view
+
+        // entries.forEach(entry => {
+        //   console.log(entry.intersectionRatio);
+        // })
+
+        // If intersectionRatio is 0, the sentinel is out of view
+        // and we don't need to do anything. Exit the function
+        if (entries[0].intersectionRatio <= 0) {
+            return;
+        }
+
+        // Call the loadItems function
+        loadItems();
+    });
+
+    // Instruct the IntersectionObserver to watch the sentinel
+    intersectionObserver.observe(sentinel);
+
+    function reloadItems(list_url_params='') {
+        list_url = list_url_base + list_url_params;
+        intersectionObserver.unobserve(sentinel);
+        scroller.querySelectorAll('*').forEach(n => n.remove());
+        page = 1;
+        counter = 0;
+        loaded.innerText = `${counter}개의 결과`;
+        sentinel.innerHTML = `<div class="spinner-border" role="status"></div>`;
+        intersectionObserver.observe(sentinel);
+    }
+
+    $("#search_form").submit(function(e) {
+        e.preventDefault();
+        var form = $(this);
+        var keyword = $("[name='search']", form).val();
+        reloadItems(`&search=${encodeURIComponent(keyword)}`);
+    });
+
+    function render_single_item(data) {        
+        // Clone the HTML template
+        let template_clone = template.content.cloneNode(true);
+
+        template_clone.querySelector("#item-name").innerHTML = data.title;
+        template_clone.querySelector("#item-name").href = `/${package_name}/down?${data.link}`;
+        if (data.datetime.includes(":")) {
+            $(`<span class="badge badge-pill badge-danger badge-notify align-top">&nbsp;</span>`).insertBefore(template_clone.querySelector("#item-name"));
+        }
+        template_clone.querySelector("#datetime").innerHTML = data.datetime;
+        if (Boolean(data.subtitle)) {
+            template_clone.querySelector("#subtitle").innerHTML = data.subtitle;
+            template_clone.querySelector("#subtitle").href = `/${package_name}/down?${data.link}`;
+        }
+
+        // Append template to dom
+        scroller.appendChild(template_clone);
+    }
+
+    
+    $(function(){
+        $.contextMenu({
+            selector: 'h6 > a#item-name',
+            trigger: 'left',
+            callback: function(key, options) {
+                if (key === "save_item") {
+                    window.open($(this).attr('href'), "_blank");
+                } else if (key === "open_src_url") {
+                    // iOS safari built-in pop-up blocker does not allow window.open() inside ajax call
+                    var windowReference = window.open();
+                    $.ajax({
+                        url: `/${package_name}/ajax/get_src_url`,
+                        type: 'POST',
+                        cache: false,
+                        data: {
+                            'href': $(this).attr('href')
+                        },
+                        dataType: "json",
+                        success: function (data) {
+                            if (data.success) {
+                                windowReference.location = data.url;
+                            } else {
+                                $.notify('<strong>실패하였습니다!</strong><br>' + data.log, {
+                                    type: 'warning'
+                                });
+                            }
+                        }
+                    });
+                } else if (key === "torrent_info") {
+                    $.ajax({
+                        url: `/${package_name}/ajax/get_torrent_info`,
+                        type: 'POST',
+                        cache: false,
+                        data: {
+                            'href': $(this).attr('href')
+                        },
+                        dataType: "json",
+                        success: function (data) {
+                            if (data.success) {                    
+                                document.getElementById("modal_title").innerHTML = '토렌트 정보';
+                                document.getElementById("modal_body").innerHTML = "<pre>"+JSON.stringify(data.info, null, 2) + "</pre>";
+                                $("#large_modal").modal();
+                            } else {
+                                $.notify('<strong>실패하였습니다!</strong><br>' + data.log, {
+                                    type: 'warning'
+                                });
+                            }
+                        }
+                    });
+                } else if (key.startsWith("offcloud_")) {
+                    $.ajax({
+                        url: `/${package_name}/ajax/get_torrent_info`,
+                        type: 'POST',
+                        cache: false,
+                        data: {
+                            'href': $(this).attr('href')
+                        },
+                        dataType: "json",
+                        success: function (data) {
+                            if (data.success) {
+                                var $tempElement = $("<button>");
+                                if (key.endsWith("_cache")) {
+                                    $tempElement.attr("id","global_offcloud_cache_confirm_btn");
+                                } else if (key.endsWith("_add")) {
+                                    $tempElement.attr("id","global_offcloud_add_btn");
+                                }
+                                $tempElement.attr("data-hash",data.info.magnet_uri);
+                                $("body").append($tempElement);
+                                $tempElement.click();
+                                $tempElement.remove();
+                            } else {
+                                $.notify('<strong>실패하였습니다!</strong><br>' + data.log, {
+                                    type: 'warning'
+                                });
+                            }
+                        }
+                    });
+                } else if (key.startsWith("down2path_")) {
+                    $.ajax({
+                        url: `/${package_name}/ajax/get_torrent_info`,
+                        type: "POST", 
+                        cache: false,
+                        data: {'href': $(this).attr('href')},
+                        dataType: "json",
+                        success: function (data) {
+                            if (data.success) {
+                                $.ajax({
+                                    url: `/${package_name}/ajax/add_download`,
+                                    type: "POST", 
+                                    cache: false,
+                                    data: {'magnet': data.info.magnet_uri, 'download_path_id': key},
+                                    dataType: "json",
+                                    success: function (data) {
+                                        if (data.success) {
+                                            $.notify('<strong>다운로드 추가하였습니다.</strong>', {
+                                                type: 'success'
+                                            });
+                                        } else {
+                                            $.notify('<strong>다운로드 추가에 실패하였습니다.</strong><br>' + data.log, {
+                                                type: 'warning'
+                                            });
+                                        }
+                                    }
+                                });
+                            } else {
+                                $.notify('<strong>마그넷 추출에 실패하였습니다.</strong><br>' + data.log, {
+                                    type: 'warning'
+                                });
+                            }
+                        }
+                    });
+                }
+            },
+            items: {
+                "download_to": {
+                    name: "다운로드 추가",
+                    icon: "fa-cloud",
+                    disabled: (downloader_disabled || torrent_info_disabled),
+                    "items": {{ download_path|tojson|safe }}
+                },
+                "offcloud": {
+                    name: "Offcloud",
+                    icon: "fa-cloud-download",
+                    disabled: (offcloud_disabled || torrent_info_disabled),
+                    "items": {
+                        "offcloud_cache": {"name": "캐시 확인", "icon": "fa-check-square-o"},
+                        "offcloud_add": {"name": "다운로드 추가", "icon": "fa-plus-square-o"}
+                    }
+                },
+                "sep2": "---------",
+                "save_item": {
+                    name: "파일로 저장",
+                    icon: "fa-floppy-o"
+                },
+                "torrent_info": {
+                    name: "토렌트 정보",
+                    icon: "fa-info-circle",
+                    disabled: torrent_info_disabled
+                },
+                "open_src_url": {
+                    name: "출처",
+                    icon: "fa-link"
+                }
+            }
+        });
+    });
+
+    $("body").on('click', 'a#subtitle', function(e) {
+        e.preventDefault();
+        let src_url = $(this).attr('href');
+        if ($(this).closest('li').find('#more-items').is('.collapse:not(.show)')) {            
+            $.ajax({
+                url: `/${package_name}/ajax/get_more`,
+                type: 'POST',
+                cache: false,
+                context: this,
+                data: {
+                    'href': $(this).attr('href')
+                },
+                dataType: "json",
+                success: function (data) {
+                    if (data.success) {                        
+                        ret = '';
+                        for (var i = 0; i < data.items.length; i++) {
+                            ret += `<p class="mb-0 small text-truncate"><a href="${src_url}&item_no=${i}" rel="noopener noreferrer" target="_blank">${data.items[i].filename}</a></p>`;
+                        };
+                        $(this).closest('li').find('#more-items').html(ret);
+                        $(this).closest('li').find('#more-items').collapse('show');
+                    } else {
+                        $.notify('<strong>실패하였습니다!</strong><br>' + data.log, {
+                            type: 'warning'
+                        });
+                    }
+                }
+            });
+        } else {
+            $(this).closest('li').find('#more-items').collapse('hide')
+        }
+    });
+
+</script>
+
+
+{% endblock %}
