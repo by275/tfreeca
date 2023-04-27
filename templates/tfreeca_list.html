@@ -18,8 +18,8 @@
     <template id="item-template">
         <li class="list-group-item">
             <div class="d-flex w-100 justify-content-between">
-                <h6 class="mb-1 text-truncate" style="flex: 1;">
-                    <a href="" target="_blank" rel="noopener noreferrer" id="item-name"></a>
+                <h6 class="d-flex w-100 justify-content-between mb-1 mr-3 text-truncate">
+                    <a href="" class="text-truncate" target="_blank" rel="noopener noreferrer" id="item-name"></a>
                     <a href="#" class="ml-1 badge badge-secondary" id="subtitle"></a>
                 </h6>
                 <span class="text-nowrap" id="datetime"></span>
@@ -141,6 +141,7 @@
         let template_clone = template.content.cloneNode(true);
 
         template_clone.querySelector("#item-name").innerHTML = data.title;
+        template_clone.querySelector("#item-name").title = data.title;
         template_clone.querySelector("#item-name").href = `/${package_name}/down?${data.link}`;
         if (data.datetime.includes(":")) {
             $(`<span class="badge badge-pill badge-danger badge-notify align-top">&nbsp;</span>`).insertBefore(template_clone.querySelector("#item-name"));
