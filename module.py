@@ -1,7 +1,7 @@
 import re
 import traceback
 from datetime import datetime
-from urllib.parse import parse_qs, quote, unquote
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
 # third-party
 import requests
@@ -231,7 +231,11 @@ class ModuleMain(PluginModuleBase):
         filename = str(view["items"][item_no]["filename"])
 
         if "download.php" in down_url:
-            fcontent = self.session.get(down_url).content
+            qs = parse_qs(urlparse(down_url).query)
+            if qs.get("id", []):
+                fcontent = self.download_filetender("https://www.filetender.com/" + qs["id"][0], filename)
+            else:
+                fcontent = self.session.get(down_url).content
         else:
             fcontent = self.download_filetender(down_url, filename)
 
