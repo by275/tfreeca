@@ -3,15 +3,11 @@ import traceback
 from datetime import datetime
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
-# third-party
 import requests
 from flask import Response, jsonify, render_template
 from lxml import html
+from plugin import F, PluginModuleBase  # pylint: disable=import-error
 
-# pylint: disable=import-error
-from plugin import F, PluginModuleBase
-
-# local
 from .setup import P
 
 plugin = P
@@ -65,15 +61,15 @@ class ModuleMain(PluginModuleBase):
                 }
             )
             try:
-                import downloader
+                import downloader  # pylint: disable=unused-import
             except ImportError:
                 arg["downloader_installed"] = False
             try:
-                import offcloud2
+                import offcloud2  # pylint: disable=unused-import
             except ImportError:
                 arg["offcloud_installed"] = False
             try:
-                import torrent_info
+                import torrent_info  # pylint: disable=unused-import
             except ImportError:
                 arg["torrent_info_installed"] = False
             download_path = [""] + [x.strip() for x in arg["download_path"].splitlines() if x.strip()]
@@ -132,7 +128,7 @@ class ModuleMain(PluginModuleBase):
                     return jsonify({"success": False, "log": "다운로드 가능한 링크를 찾을 수 없음"})
             if sub == "add_download":
                 try:
-                    import downloader
+                    import downloader  # pylint: disable=import-error
 
                     magnet = p.get("magnet", "")
                     path_id = p.get("download_path_id")
